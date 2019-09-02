@@ -18,7 +18,7 @@ import com.qualcomm.robotcore.hardware.Servo;
  *    Interfaces:
  *        + targetServo - Servo interface
  *
- * Revised 18Nov2017 */
+ * Revised 07January2019 */
 
 
 

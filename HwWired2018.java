@@ -1,14 +1,15 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
 /**
  * This is a hardware class for the Wired Woodman
  *
- * Revised 13Feb2018 - Modified Glyph Arm speed and limits; set glyph arm zero power behavior to BRAKE
- * Revised 15Feb2018 - Removed glyph arm ZeroPowerBehavior
+ * Revised 13Feb2018 by Josh Sirkin and Mike Zook - Modified Glyph Arm speed and limits; set glyph arm zero power behavior to BRAKE
+ * Revised 16January2019 by Blake Roscoe - Changed numbers of positions for mineral arm
  */
 
 public class HwWired2018
@@ -17,37 +18,53 @@ public class HwWired2018
     DcMotor
             leftDrive = null,
             rightDrive = null,
-            latchArm = null;
+            latchArm = null,
+            mineralMove = null,
+            mineralCollector = null;
+
 
     Servo
-             latchArmGripper = null,
+            latchArmGripper = null,
             frontExtension = null,
-            backExtension = null;
+            backExtension = null,
+            mineralStomper = null;
+
 
     final double
             //Numbers need changed, these are servos
-            L_GRIPPER_OPEN =  0.1,
-            L_GRIPPER_CLOSED =  0.75,
-            F_EXTEND_OUT = 0.8,
-            F_EXTEND_IN = 0.5,
-            B_EXTEND_OUT = .8,
-            B_EXTEND_IN = 0.5,
-
-            // These ones are for the motors
-            L_ARM_SPEED_FACTOR = 0.2;
-
+            L_GRIPPER_OPEN =  0,
+            L_GRIPPER_CLOSED =  1,
+            F_EXTEND_OUT = .7,
+            F_RETRACT = 0,
+            B_EXTEND_OUT = .7,
+            B_RETRACT = 0,
+            M_STOMP_UP = .8,
+            M_STOMP_DOWN = .05,
+            M_STOMP_INC = 0.015,
+    
+// These ones are for the motors
+            L_ARM_SPEED_FACTOR = 1.0,
+            M_MOVE_SPEED_FACTOR = .4,
+            M_COLLECTOR_SPEED_FACTOR = .4;
 
 
     final int
             // These numbers are motors
-            G_ARM_UP_POS =  1250,
-            G_ARM_SAFE_POS = 725,
-            G_ARM_DOWN_POS =  0,
-            R_ARM_UP_POS =  17000,
-            R_ARM_SAFE_POS = 400,
-            R_ARM_DOWN_POS = 0,
-            R_ARM_OUT_POS = 8550,
-            R_ARM_IN_POS = 0;
+            /*Gear ratio=(120/80)(120/40)
+            Encoder = 1680
+            Mineral Encoder = 1440
+            Position = (Distance) (1/diameter) (Encoder count/1)
+            Our formula = (15 in.) (1/.869 in.) (1680/1)
+            For mineral arm = ((degrees) (encoder count) (gear ratio)) /360*/
+            L_ARM_UP_POS = 0,
+            L_ARM_DOWN_POS = -18000,
+            M_MOVE_UP_POS = 2100,
+            M_MOVE_DOWN_POS = 0,
+            M_COLLECTOR_UP_POS = 3500,
+            M_COLLECTOR_DOWN_POS = 0;
+
+
+
 
     /* local OpMode members. */
     HardwareMap hwMap =  null;
@@ -69,24 +86,36 @@ public class HwWired2018
         leftDrive   = hwMap.dcMotor.get("left_drive");
         rightDrive  = hwMap.dcMotor.get("right_drive");
         latchArm    = hwMap.dcMotor.get("latch_arm");
+        mineralMove = hwMap.dcMotor.get("mineral_move");
+        mineralCollector = hwMap.dcMotor.get("mineral_collector");
+
 
 
         latchArmGripper = hwMap.servo.get("latch_gripper");
         frontExtension = hwMap.servo.get("front_extend");
         backExtension =  hwMap.servo.get("back_extend");
+        mineralStomper = hwMap.servo.get("mineral_stomper");
 
 
 
         // Configure and Initialize Motors
-        leftDrive.setDirection(DcMotor.Direction.REVERSE);
+        leftDrive.setDirection(DcMotor.Direction.FORWARD);
         leftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        rightDrive.setDirection(DcMotor.Direction.FORWARD);
+        rightDrive.setDirection(DcMotor.Direction.REVERSE);
         rightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         latchArm.setDirection(DcMotor.Direction.REVERSE);
         latchArm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         latchArm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        mineralMove.setDirection(DcMotor.Direction.FORWARD);
+        mineralMove.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        mineralMove.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        mineralCollector.setDirection(DcMotor.Direction.REVERSE);
+        mineralCollector.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        mineralCollector.setMode(DcMotor.RunMode.RUN_TO_POSITION);
 
 
 
@@ -94,12 +123,16 @@ public class HwWired2018
         leftDrive.setPower(0);
         rightDrive.setPower(0);
         latchArm.setPower(0);
+        mineralMove.setPower(0);
+        mineralCollector.setPower(0);
 
 
         // Initialize servo positions.
         latchArmGripper.setPosition(L_GRIPPER_CLOSED);
-        frontExtension.setPosition(F_EXTEND_IN);
+        frontExtension.setPosition(F_RETRACT);
         backExtension.setPosition(B_EXTEND_OUT);
+        mineralStomper.setPosition(M_STOMP_DOWN);
+
     }
 
 }

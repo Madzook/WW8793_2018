@@ -36,9 +36,9 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
  *    Interfaces:
  *        + robotMotor - DcMotor interface
  *
- * Revised 15Dec2017 */
+ * Revised 07January2019 */
 
-public class DeviceTargetMotor
+class DeviceTargetMotor
 {
     /* =======================================================
      * CLASS MEMBERS (i.e., Class Status)
@@ -47,29 +47,22 @@ public class DeviceTargetMotor
     /* -------------------------------------------------------
      * Public (Shared) Class Members
      * ------------------------------------------------------- */
-    public DcMotor
-            targetMotor;          // Motor to be monitored and controlled.
+    DcMotor targetMotor;    // Motor to be monitored and controlled.
 
-    public double
-            gearRatio,            // gear ratio of motorized assembly
+    double  gearRatio,            // gear ratio of motorized assembly
             encoderCountsPerRev,  // Encoder counts per axle revolution
             radius,               // Radius of implement (i.e., arm, wheel; engineering units)
-            targetPosition;       // Final target position as calculated by a 'goTo' move method ( position in engineering units)
+            targetPosition = 0.0; // Final target position as calculated by a 'goTo' move method ( position in engineering units)
 
-    public int
-            targetCount;          // Calculated final target position (encoder Counts)
+    int     targetCount = 0;      // Calculated final target position (encoder Counts)
 
-    public String
-            name;                 // Motor name as configured on the Android device
+    String  name;   // Motor name as configured on the Android device
 
-
-    /* -------------------------------------------------------
-     * Private (Concealed) Class Members
-     * ------------------------------------------------------- */
     private boolean
-            noImplement,          // No implement (e.g., arm, wheel) attached to or defined for the motor driven assembly
-            undefinedEncoder;     // No encoder defined
-
+            undefinedImplement = false, // No implement (e.g., arm, wheel) attached to or defined for the motor driven assembly
+            undefinedEncoder = false,   // No encoder defined
+            isDistanceMove = true,      // true = Distance move triggered; false = Degrees move triggered
+            isBusyTrigger = false;      // Motor isBusy toggled off after last motion command
 
 
     /* =======================================================
@@ -95,50 +88,49 @@ public class DeviceTargetMotor
      *   + Five constructors are available for object creation
      *   + The first constructor defines all the possible data needed to take full advantage of this class
      *   + If encoderCountsPerRev is not defined, all 'goTo...Distance' moves will be defined in encoder counts. 'goTo...Degrees' will be nonfunctional.
-     *   + If radius is not defined, all 'goTo...Distance' moves will be defined in encoder counts. 'goTo...Degrese' will not be impacted.
+     *   + If radius is not defined, all 'goTo...Distance' moves will be defined in encoder counts. 'goTo...Degrees' will not be impacted.
      * ======================================================= */
 
     // Constructor #1
     DeviceTargetMotor(HardwareMap hwMap, String motorName, boolean motorDirection, double motorEncoderCountsPerRev, double motorGearRatio, double implementRadius) {
 
-        name = motorName;                       // Save name for later reference
-        targetMotor = hwMap.dcMotor.get(name);  // Link motor to installed hardware
+        targetMotor = hwMap.dcMotor.get(name = motorName);  // Link motor to installed hardware, and save name for later reference
 
         if (motorDirection)   // Configure motor direction
             targetMotor.setDirection(DcMotor.Direction.REVERSE);
         else
             targetMotor.setDirection(DcMotor.Direction.FORWARD);
 
-        // Initialize target values
-        targetCount = 0;
-        targetPosition = 0;
-
         // Capture motor attributes for use in later calculations
         gearRatio = motorGearRatio;
         encoderCountsPerRev = motorEncoderCountsPerRev;
         radius = implementRadius;
-        noImplement = (radius <= 0.00001);  // Note: 0.00001 is essentially zero
-        undefinedEncoder = (encoderCountsPerRev <= 1.00001);
     }
 
     // Constructor #2 (No Radius)
     DeviceTargetMotor(HardwareMap hwMap, String motorName, boolean motorForward, double motorEncoderCountsPerRev, double motorGearRatio) {
-        this(hwMap, motorName,motorForward,motorEncoderCountsPerRev,motorGearRatio,0);
+        this(hwMap, motorName,motorForward,motorEncoderCountsPerRev,motorGearRatio, 0.0);
+        undefinedImplement = true;
     }
 
     // Constructor #3 (No Radius and Gear Ratio)
     DeviceTargetMotor(HardwareMap hwMap, String motorName, boolean motorForward, double motorEncoderCountsPerRev) {
-        this(hwMap,motorName,motorForward,motorEncoderCountsPerRev,1,0);
+        this(hwMap,motorName,motorForward,motorEncoderCountsPerRev, 1.0, 0.0);
+        undefinedImplement = true;
     }
 
     // Constructor #4 (No Radius, Gear Ratio, and Encoder Counts Per Revolution)
     DeviceTargetMotor(HardwareMap hwMap, String motorName, boolean motorForward) {
-        this(hwMap,motorName,motorForward,1,1,0);
+        this(hwMap,motorName,motorForward,1.0, 1.0, 0.0);
+        undefinedImplement = true;
+        undefinedEncoder = true;
     }
 
     // Constructor #5 (No Radius, Gear Ratio, Encoder Counts Per Revolution, and Direction)
     DeviceTargetMotor(HardwareMap hwMap, String motorName) {
-        this(hwMap,motorName,true,1,1,0);
+        this(hwMap,motorName,true,1.0,1.0,0.0);
+        undefinedImplement = true;
+        undefinedEncoder = true;
     }
 
 
@@ -150,21 +142,21 @@ public class DeviceTargetMotor
      * Method: resetEncoder
      * Purpose: Initialize the motor. Stop motor, reset encoder, and set "RUN_TO_POSITION" mode
      * ------------------------------------------------------- */
-    public void resetEncoder() {
+    void resetEncoder() {
         targetMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);  // Stop motor and reset encoder
         targetMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);         // Set mode to "RUN_TO_POSITION"
         targetCount = 0;        // Reset target status values
-        targetPosition = 0;
+        targetPosition = 0.0;
     }
 
 
     /* -------------------------------------------------------
      * Method: stop
      * Purpose: Stop motor and set "RUN_TO_POSITION" mode
-     * Note: This method is useful after executing goAtSpeed()
+     * Note: This method is useful after executing goAtSpeed(), but it provides no braking.
      * ------------------------------------------------------- */
-    public void stop () {
-        targetMotor.setPower(0);   // Stop motor
+    void stop () {
+        targetMotor.setPower(0.0);   // Stop motor
         targetMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);  // Set mode to "RUN_TO_POSITION"
     }
 
@@ -176,7 +168,7 @@ public class DeviceTargetMotor
      *    + speed = Desired velocity (-1.0 to 1.0 = -100% to 100% configured max speed)
      * Note: For position/target moves, the absolute value of speed is used
      * ------------------------------------------------------- */
-    public void setSpeed(double speed) {
+    void setSpeed(double speed) {
         targetMotor.setPower(speed);  // Set new motor speed
     }
 
@@ -185,9 +177,9 @@ public class DeviceTargetMotor
      * Method: getPosition
      * Purpose: Returns current motorized assembly position in engineering units corresponding to the radius
      * ------------------------------------------------------- */
-    public double getPosition () {
+    double getPosition () {
 
-        if (undefinedEncoder || noImplement)
+        if (undefinedEncoder || undefinedImplement)
             // If encoder or radius is undefined, return encoder counts
             return (double)targetMotor.getCurrentPosition();
         else
@@ -200,7 +192,7 @@ public class DeviceTargetMotor
      * Method: getDegrees
      * Purpose: Returns current motorized assembly position in engineering units corresponding to the radius
      * ------------------------------------------------------- */
-    public double getDegrees ()
+    double getDegrees ()
     {
         if (undefinedEncoder)
             // If encoder is undefined, return zero
@@ -222,7 +214,7 @@ public class DeviceTargetMotor
      *    + This method only initiates a move; the move may require numerous program scans for completion
      *    + Use the "isMoveDone" method to monitor move progress
      * ------------------------------------------------------- */
-    public int goToRelativeDistance(double relativeTargetDistance, double speed) {
+    int goToRelativeDistance(double relativeTargetDistance, double speed) {
         targetPosition = relativeTargetDistance + this.getPosition(); // Calculate new target distance in engineering units
         this.goToDistance(speed); // Call private method "goToDistance" in "this" class to calculate target (encoder counts) and to initiate the move
         return targetCount;       // Although targetCount is publicly available, it is also returned as a result of this method
@@ -240,7 +232,7 @@ public class DeviceTargetMotor
      *    + This method only initiates a move; the move may require numerous program scans for completion
      *    + Use the "isMoveDone" method to monitor move progress
      * ------------------------------------------------------- */
-    public int goToAbsoluteDistance(double absoluteTarget, double speed) {
+    int goToAbsoluteDistance(double absoluteTarget, double speed) {
         targetPosition = absoluteTarget; // The new target is the given absolute target
         this.goToDistance(speed); // Call private method "goToDistance" in "this" class to calculate target (encoder counts) and to initiate the move
         return targetCount;       // Although targetCount is publicly available, it is also returned as a rsult of this method
@@ -258,7 +250,7 @@ public class DeviceTargetMotor
      *    + This method only initiates a move; the move may require numerous program scans for completion
      *    + Use the "isMoveDone" method to monitor move progress
      * ------------------------------------------------------- */
-    public int goToRelativeDegrees(double relativeTargetInDegrees, double speed) {
+    int goToRelativeDegrees(double relativeTargetInDegrees, double speed) {
         targetPosition = relativeTargetInDegrees + this.getDegrees();  // Calculate new target distance in degrees
         this.goToDegrees(speed);  // Call private method "goToDegrees" in "this" class to calculate target (encoder counts) and to initiate the move
         return targetCount;       // Although targetCount is publicly available, it is also returned as a rsult of this method
@@ -276,7 +268,7 @@ public class DeviceTargetMotor
      *    + This method only initiates a move; the move may require numerous program scans for completion
      *    + Use the "isMoveDone" method to monitor move progress
      * ------------------------------------------------------- */
-    public int goToAbsoluteDegrees(double absoluteTargerInDegrees, double speed) {
+    int goToAbsoluteDegrees(double absoluteTargerInDegrees, double speed) {
         targetPosition = absoluteTargerInDegrees;  // The new target is the given absolute target
         this.goToDegrees(speed);  // Call private method "goToDegrees" in "this" class to calculate target (encoder counts) and to initiate the move
         return targetCount;       // Although targetCount is publicly available, it is also returned as a rsult of this method
@@ -290,12 +282,29 @@ public class DeviceTargetMotor
      *    + targetDelta = The maximum allowed error from target position to actual position (engineering units for distance moves, degrees for angular moves)
      * Returns "true" if target achieved
      * ------------------------------------------------------- */
-    public boolean isMoveDone(double targetDelta) {
-        int countDelta = (int)(targetDelta*gearRatio*encoderCountsPerRev/(2.0*radius*Math.PI));  // Convert delta from engineering units to encoder counts
-        int counts = targetMotor.getCurrentPosition();                                 // Get the current motor position (encoder counts)
+    boolean isMoveDone(double targetDelta) {
+        int counts = targetMotor.getCurrentPosition(),  // Current motor position (encoder counts)
+            countDelta;  // Allowable error from target (encoder counts)
 
-        // If the motor is within the target window ( target-delta <= actual position <= target+delta) and the motor is not busy (i.e., actively moving), then the move is complete
-        return (counts <= targetCount + countDelta) && (counts >= targetCount - countDelta) && !targetMotor.isBusy();
+        // Convert delta from engineering units to encoder counts
+        if (isDistanceMove) { // If linear move ...
+            if (undefinedImplement) // Delta must be provided in encoder counts in implement radius is not defined for a linear move
+                countDelta = (int) targetDelta;
+            else // Convert engineering units for a linear move to encoder counts.
+                countDelta = (int)(targetDelta*gearRatio*encoderCountsPerRev/(2.0*radius*Math.PI));
+        }
+        else // if angular move, convert degrees to encoder counts
+            countDelta = (int)(targetDelta*gearRatio*encoderCountsPerRev/360.0);
+
+        /* If the motor is not busy after entering the target window, reset the isbusyTrigger to false.
+         * Why needed? The targetMotor.isBusy() variable may toggle on and off after a move is complete. If the motor
+         * is a component of a multi-motor system (e.g., drive train, multi-joint arm), the toggling targetMotor.isBusy()
+          * variables for the motors in the system may prevent identification of system move complete. */
+        if ((counts <= targetCount + countDelta) && (counts >= targetCount - countDelta) && !targetMotor.isBusy())
+            isBusyTrigger = false;
+
+         // If the motor is within the target window ( target-delta <= actual position <= target+delta) and the motor is not busy (i.e., actively moving), then the move is complete
+        return (counts <= targetCount + countDelta) && (counts >= targetCount - countDelta) && !isBusyTrigger;
     }
 
 
@@ -309,7 +318,7 @@ public class DeviceTargetMotor
      *    + To stop halt motion, use the "stop" method
      *    + The "stop" or "resetEncoders" method must be used before initiating a new 'goTo' move; otherwise, the motor will be in the wrong mode.
      * ------------------------------------------------------- */
-    public void goAtSpeed(double speed) {
+    void goAtSpeed(double speed) {
         targetMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);  // Change motor mode to "RUN_USING_ENCODER"
         targetMotor.setPower(speed);  // Set motor speed (-1.0 to 1.0 = -100% to 100% configured max speed)
     }
@@ -326,7 +335,7 @@ public class DeviceTargetMotor
      *    + speed = Desired velocity (0-1.0 = 0-100% configured max speed)
      * ------------------------------------------------------- */
     private void goToDistance (double speed) {
-        if (undefinedEncoder || noImplement)
+        if (undefinedEncoder || undefinedImplement)
             // If encoder or radius are undefined, target count is the target position
             targetCount = (int)(targetPosition);
         else
@@ -336,6 +345,9 @@ public class DeviceTargetMotor
         targetMotor.setTargetPosition(targetCount);  // Initiate move given target (encoder counts)
 
         targetMotor.setPower(speed);  // Set motor speed
+
+        isBusyTrigger = true;      // Move command triggered.
+        isDistanceMove = true;    // Distance move triggered.
     }
 
 
@@ -357,5 +369,8 @@ public class DeviceTargetMotor
         targetMotor.setTargetPosition(targetCount);  // Initiate move given target (encoder counts)
 
         targetMotor.setPower(speed);  // Set motor speed
+
+        isBusyTrigger = true;      // Move command triggered.
+        isDistanceMove = false;    // Degrees move triggered.
     }
 }

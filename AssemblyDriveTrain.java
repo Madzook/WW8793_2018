@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 /**
  * AssemblyDriveTrain Class
- * Created 19Nov2017 for the Greenwood FTC Robotics Club.
+ * Created 03December2018 for the Greenwood FTC Robotics Club.
  * This class is designed for a balanced two motor drive train.
  *
  * Objects created from this class will have the following status and behaviors:
@@ -25,7 +25,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
  *    Interfaces and Objects:
  *        + motorLeft - DeviceTargetMotor object
  *        + motorRight - DeviceTargetMotor object
- * Revised 01Dec2017 */
+ * Revised 01January 2019 */
 
 
 public class AssemblyDriveTrain
@@ -256,7 +256,8 @@ public class AssemblyDriveTrain
      *    + This method employs the methods inherent in the DeviceMotorTarget class
      * ------------------------------------------------------- */
     public boolean isMoveDone (double targetDelta) {
-        return motorLeft.isMoveDone(targetDelta) && motorRight.isMoveDone(targetDelta);
+        //return motorLeft.isMoveDone(targetDelta) && motorRight.isMoveDone(targetDelta);
+        return motorLeft.isMoveDone(targetDelta) || motorRight.isMoveDone(targetDelta);
     }
 
 
